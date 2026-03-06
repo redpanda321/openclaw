@@ -22,11 +22,28 @@ export function schemaType(schema: JsonSchema): string | undefined {
   if (!schema) {
     return undefined;
   }
+
+  let type: string | undefined;
   if (Array.isArray(schema.type)) {
     const filtered = schema.type.filter((t) => t !== "null");
-    return filtered[0] ?? schema.type[0];
+    type = filtered[0] ?? schema.type[0];
+  } else {
+    type = schema.type;
   }
-  return schema.type;
+
+  if (type) {
+    return type;
+  }
+
+  // Fallback: infer from schema structure
+  if (schema.properties || schema.additionalProperties) {
+    return "object";
+  }
+  if (schema.items) {
+    return "array";
+  }
+
+  return undefined;
 }
 
 export function defaultValue(schema?: JsonSchema): unknown {

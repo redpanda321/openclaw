@@ -524,7 +524,7 @@ export function renderNode(params: {
   return html`
     <div class="cfg-field cfg-field--error">
       <div class="cfg-field__label">${label}</div>
-      <div class="cfg-field__error">Unsupported type: ${type}. Use Raw mode.</div>
+      <div class="cfg-field__error">Unsupported schema format (${type || "unknown"}). Use Raw mode.</div>
     </div>
   `;
 }
