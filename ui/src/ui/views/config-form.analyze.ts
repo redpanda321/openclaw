@@ -95,8 +95,8 @@ function normalizeSchemaNode(
       if (!isAnySchema(schema.additionalProperties)) {
         const res = normalizeSchemaNode(schema.additionalProperties, [...path, "*"]);
         normalized.additionalProperties = res.schema ?? schema.additionalProperties;
-        if (res.unsupportedPaths.length > 0) {
-          unsupported.add(pathLabel);
+        for (const issue of res.unsupportedPaths) {
+          unsupported.add(issue);
         }
       }
     }
@@ -107,8 +107,8 @@ function normalizeSchemaNode(
     } else {
       const res = normalizeSchemaNode(itemsSchema, [...path, "*"]);
       normalized.items = res.schema ?? itemsSchema;
-      if (res.unsupportedPaths.length > 0) {
-        unsupported.add(pathLabel);
+      for (const issue of res.unsupportedPaths) {
+        unsupported.add(issue);
       }
     }
   } else if (
