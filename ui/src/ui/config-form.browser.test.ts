@@ -514,6 +514,52 @@ describe("config form renderer", () => {
     expect(container.textContent).not.toContain("Use Raw mode");
   });
 
+  it("normalizes boolean+enum union (Telegram streaming field pattern)", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        channels: {
+          type: "object",
+          properties: {
+            telegram: {
+              type: "object",
+              properties: {
+                streaming: {
+                  anyOf: [
+                    { type: "boolean" },
+                    { enum: ["off", "partial", "block", "progress"] },
+                  ],
+                },
+                capabilities: {
+                  anyOf: [
+                    { type: "array", items: { type: "string" } },
+                    {
+                      type: "object",
+                      properties: { inlineButtons: { type: "string" } },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const analysis = analyzeConfigSchema(schema);
+    // streaming should be supported and collapsed to an enum
+    expect(analysis.unsupportedPaths).not.toContain("channels.telegram.streaming");
+    const streamingSchema = analysis.schema?.properties?.channels?.properties?.telegram?.properties?.streaming;
+    expect(streamingSchema?.enum).toBeDefined();
+    expect(streamingSchema?.enum).toContain(true);
+    expect(streamingSchema?.enum).toContain(false);
+    expect(streamingSchema?.enum).toContain("off");
+    expect(streamingSchema?.enum).toContain("block");
+    // capabilities (array|object union) is field-level unsupported but channel is not blocked
+    expect(analysis.unsupportedPaths).not.toContain("channels.telegram");
+    expect(analysis.unsupportedPaths).toContain("channels.telegram.capabilities");
+  });
+
   it("supports nullable types", () => {
     const schema = {
       type: "object",

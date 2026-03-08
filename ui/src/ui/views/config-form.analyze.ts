@@ -246,7 +246,7 @@ function normalizeUnion(
     };
   }
 
-  if (remaining.length === 1) {
+  if (remaining.length === 1 && literals.length === 0) {
     const res = normalizeSchemaNode(remaining[0], path);
     if (res.schema) {
       res.schema.nullable = nullable || res.schema.nullable;
@@ -260,6 +260,53 @@ function normalizeUnion(
     literals.length === 0 &&
     remaining.every((entry) => entry.type && primitiveTypes.has(String(entry.type)))
   ) {
+    return {
+      schema: {
+        ...schema,
+        nullable,
+      },
+      unsupportedPaths: [],
+    };
+  }
+
+  // Handle mixed primitive+literal unions like `boolean | enum("off","partial","block")`.
+  // Expand boolean to true/false literals and merge with the collected literals so the
+  // renderer can show a segmented control or dropdown with all valid values.
+  if (
+    remaining.length > 0 &&
+    literals.length > 0 &&
+    remaining.every((entry) => entry.type && primitiveTypes.has(String(entry.type)))
+  ) {
+    const expanded: unknown[] = [];
+    for (const entry of remaining) {
+      if (String(entry.type) === "boolean") {
+        expanded.push(true, false);
+      }
+      // string/number/integer typed entries without enum values are intentionally not
+      // expanded here — they would produce unbounded inputs. Only boolean is finite.
+    }
+    const onlyBooleans = remaining.every((entry) => String(entry.type) === "boolean");
+    if (onlyBooleans) {
+      const mergedLiterals: unknown[] = [];
+      for (const value of [...expanded, ...literals]) {
+        if (!mergedLiterals.some((existing) => Object.is(existing, value))) {
+          mergedLiterals.push(value);
+        }
+      }
+      return {
+        schema: {
+          ...schema,
+          enum: mergedLiterals,
+          nullable,
+          anyOf: undefined,
+          oneOf: undefined,
+          allOf: undefined,
+        },
+        unsupportedPaths: [],
+      };
+    }
+    // Mixed string/number + literals: pass through with anyOf intact so the renderer
+    // can use its built-in union handling (text input fallback).
     return {
       schema: {
         ...schema,
