@@ -1,5 +1,14 @@
 import { render } from "lit";
 import { describe, expect, it, vi } from "vitest";
+import { buildChannelConfigSchema } from "../../../src/channels/plugins/config-schema.js";
+import {
+  DiscordConfigSchema,
+  GoogleChatConfigSchema,
+  SignalConfigSchema,
+  SlackConfigSchema,
+  TelegramConfigSchema,
+} from "../../../src/config/zod-schema.providers-core.js";
+import { WhatsAppConfigSchema } from "../../../src/config/zod-schema.providers-whatsapp.js";
 import { renderChannelConfigForm } from "./views/channels.config.ts";
 import { analyzeConfigSchema, renderConfigForm } from "./views/config-form.ts";
 
@@ -33,6 +42,29 @@ const rootSchema = {
     },
   },
 };
+
+function buildRealChannelSchema(channelId: string, schema: { toJSONSchema?: (params?: Record<string, unknown>) => unknown }) {
+  return {
+    type: "object",
+    properties: {
+      channels: {
+        type: "object",
+        properties: {
+          [channelId]: buildChannelConfigSchema(schema as never).schema,
+        },
+      },
+    },
+  };
+}
+
+const REAL_CHANNEL_SCHEMAS = [
+  ["telegram", TelegramConfigSchema],
+  ["discord", DiscordConfigSchema],
+  ["googlechat", GoogleChatConfigSchema],
+  ["slack", SlackConfigSchema],
+  ["signal", SignalConfigSchema],
+  ["whatsapp", WhatsAppConfigSchema],
+] as const;
 
 describe("config form renderer", () => {
   it("renders inputs and patches values", () => {
@@ -739,5 +771,42 @@ describe("config form renderer", () => {
       "Channel config schema uses an unsupported format. Use Raw mode.",
     );
     expect(container.textContent).not.toContain("Unsupported type: . Use Raw mode.");
+  });
+
+  it.each(REAL_CHANNEL_SCHEMAS)(
+    "keeps the %s root schema editable when using the real generated channel config schema",
+    (channelId, channelSchema) => {
+      const schema = buildRealChannelSchema(channelId, channelSchema);
+      const analysis = analyzeConfigSchema(schema);
+
+      expect(analysis.unsupportedPaths).not.toContain(`channels.${channelId}`);
+      expect(analysis.schema?.properties?.channels?.properties?.[channelId]).toBeDefined();
+    },
+  );
+
+  it("keeps transformed Telegram custom command fields out of Raw-mode fallback", () => {
+    const schema = buildRealChannelSchema("telegram", TelegramConfigSchema);
+    const analysis = analyzeConfigSchema(schema);
+
+    expect(analysis.unsupportedPaths).not.toContain("channels.telegram.customCommands.*.command");
+    expect(analysis.unsupportedPaths).not.toContain(
+      "channels.telegram.customCommands.*.description",
+    );
+    expect(analysis.unsupportedPaths).not.toContain(
+      "channels.telegram.accounts.*.customCommands.*.command",
+    );
+    expect(analysis.unsupportedPaths).not.toContain(
+      "channels.telegram.accounts.*.customCommands.*.description",
+    );
+  });
+
+  it("keeps Google Chat secret reference unions editable", () => {
+    const schema = buildRealChannelSchema("googlechat", GoogleChatConfigSchema);
+    const analysis = analyzeConfigSchema(schema);
+
+    expect(analysis.unsupportedPaths).not.toContain("channels.googlechat.serviceAccountRef");
+    expect(analysis.unsupportedPaths).not.toContain(
+      "channels.googlechat.accounts.*.serviceAccountRef",
+    );
   });
 });

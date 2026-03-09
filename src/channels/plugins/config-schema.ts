@@ -11,6 +11,7 @@ export function buildChannelConfigSchema(schema: ZodTypeAny): ChannelConfigSchem
     return {
       schema: schemaWithJson.toJSONSchema({
         target: "draft-07",
+        io: "input",
         unrepresentable: "any",
       }) as Record<string, unknown>,
     };

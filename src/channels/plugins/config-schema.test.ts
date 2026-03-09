@@ -26,6 +26,7 @@ describe("buildChannelConfigSchema", () => {
 
     expect(toJSONSchema).toHaveBeenCalledWith({
       target: "draft-07",
+      io: "input",
       unrepresentable: "any",
     });
     expect(result.schema).toEqual({

@@ -152,6 +152,56 @@ function isSecretRefUnion(entry: JsonSchema): boolean {
   return variants.every((variant) => isSecretRefVariant(variant));
 }
 
+function normalizeSecretRefUnion(
+  schema: JsonSchema,
+  path: Array<string | number>,
+  variants: JsonSchema[],
+  nullable: boolean,
+): ConfigSchemaAnalysis | null {
+  if (variants.length === 0 || !variants.every((variant) => isSecretRefVariant(variant))) {
+    return null;
+  }
+
+  const sourceValues: string[] = [];
+  let providerSchema: JsonSchema | undefined;
+
+  for (const variant of variants) {
+    const sourceConst = variant.properties?.source?.const;
+    if (typeof sourceConst === "string" && !sourceValues.includes(sourceConst)) {
+      sourceValues.push(sourceConst);
+    }
+    if (!providerSchema && variant.properties?.provider) {
+      providerSchema = { ...variant.properties.provider };
+    }
+  }
+
+  if (sourceValues.length === 0) {
+    return null;
+  }
+
+  return normalizeSchemaNode(
+    {
+      ...schema,
+      type: "object",
+      properties: {
+        source: {
+          type: "string",
+          enum: sourceValues,
+        },
+        provider: providerSchema ?? { type: "string" },
+        id: { type: "string" },
+      },
+      required: ["source", "provider", "id"],
+      additionalProperties: false,
+      nullable,
+      anyOf: undefined,
+      oneOf: undefined,
+      allOf: undefined,
+    },
+    path,
+  );
+}
+
 function normalizeSecretInputUnion(
   schema: JsonSchema,
   path: Array<string | number>,
@@ -224,6 +274,11 @@ function normalizeUnion(
   const secretInput = normalizeSecretInputUnion(schema, path, remaining, nullable);
   if (secretInput) {
     return secretInput;
+  }
+
+  const secretRef = normalizeSecretRefUnion(schema, path, remaining, nullable);
+  if (secretRef) {
+    return secretRef;
   }
 
   if (literals.length > 0 && remaining.length === 0) {
@@ -423,7 +478,7 @@ function mergeObjectMember(
   left: JsonSchema,
   right: JsonSchema,
   path: Array<string | number>,
-): ConfigSchemaAnalysis | null {
+): { schema: JsonSchema; unsupportedPaths: string[] } | null {
   if (JSON.stringify(left) === JSON.stringify(right)) {
     return {
       schema: {
@@ -435,7 +490,14 @@ function mergeObjectMember(
   }
 
   if (schemaType(left) === "object" && schemaType(right) === "object") {
-    return normalizeObjectComposition({ type: "object" }, path, [left, right], false);
+    const merged = normalizeObjectComposition({ type: "object" }, path, [left, right], false);
+    if (!merged?.schema) {
+      return null;
+    }
+    return {
+      schema: merged.schema,
+      unsupportedPaths: merged.unsupportedPaths,
+    };
   }
 
   return null;
@@ -463,14 +525,17 @@ function mergeAdditionalProperties(
     return normalizedLeft === normalizedRight ? left : null;
   }
 
-  if (isAnySchema(normalizedLeft) || isAnySchema(normalizedRight)) {
-    return isAnySchema(normalizedLeft) ? normalizedRight : normalizedLeft;
+  const leftSchema = normalizedLeft as JsonSchema;
+  const rightSchema = normalizedRight as JsonSchema;
+
+  if (isAnySchema(leftSchema) || isAnySchema(rightSchema)) {
+    return isAnySchema(leftSchema) ? rightSchema : leftSchema;
   }
 
-  if (JSON.stringify(normalizedLeft) === JSON.stringify(normalizedRight)) {
-    return normalizedLeft;
+  if (JSON.stringify(leftSchema) === JSON.stringify(rightSchema)) {
+    return leftSchema;
   }
 
-  const merged = mergeObjectMember(normalizedLeft, normalizedRight, path);
+  const merged = mergeObjectMember(leftSchema, rightSchema, path);
   return merged?.schema ?? null;
 }
