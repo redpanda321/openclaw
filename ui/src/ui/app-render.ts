@@ -80,6 +80,7 @@ import { renderLogs } from "./views/logs.ts";
 import { renderNodes } from "./views/nodes.ts";
 import { renderOverview } from "./views/overview.ts";
 import { renderSessions } from "./views/sessions.ts";
+import { renderSetupFab } from "./views/setup.ts";
 import { renderSkills } from "./views/skills.ts";
 
 const AVATAR_DATA_RE = /^data:/i;
@@ -1178,6 +1179,7 @@ export function renderApp(state: AppViewState) {
             : nothing
         }
       </main>
+      ${renderSetupFab()}
       ${renderExecApprovalPrompt(state)}
       ${renderGatewayUrlConfirmation(state)}
     </div>
