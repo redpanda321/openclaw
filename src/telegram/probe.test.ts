@@ -95,6 +95,16 @@ describe("probeTelegram retry logic", () => {
     }
   });
 
+  it.each(["", "  ", undefined])("should return error immediately for empty/blank token (%j)", async (emptyToken) => {
+    const fetchMock = installFetchMock();
+
+    const result = await probeTelegram(emptyToken as string, timeoutMs);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/empty|not configured/i);
+    expect(fetchMock).toHaveBeenCalledTimes(0);
+  });
+
   it("should NOT retry if getMe returns a 401 Unauthorized", async () => {
     const fetchMock = installFetchMock();
     const mockResponse = {

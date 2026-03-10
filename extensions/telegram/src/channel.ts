@@ -470,6 +470,12 @@ export const telegramPlugin: ChannelPlugin<ResolvedTelegramAccount, TelegramProb
         throw new Error(reason);
       }
       const token = (account.token ?? "").trim();
+      if (!token) {
+        throw new Error(
+          `Telegram bot token missing for account "${account.accountId}". ` +
+          `Set botToken in config or TELEGRAM_BOT_TOKEN env var.`,
+        );
+      }
       let telegramBotLabel = "";
       try {
         const probe = await getTelegramRuntime().channel.telegram.probeTelegram(

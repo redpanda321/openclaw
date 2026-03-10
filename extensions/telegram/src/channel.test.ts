@@ -218,11 +218,9 @@ describe("telegramPlugin duplicate token guard", () => {
       token: undefined as unknown as string,
     } as ResolvedTelegramAccount;
 
-    await expect(telegramPlugin.gateway!.startAccount!(ctx)).resolves.toBeUndefined();
-    expect(monitorTelegramProvider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        token: "",
-      }),
+    await expect(telegramPlugin.gateway!.startAccount!(ctx)).rejects.toThrow(
+      /bot token missing/i,
     );
+    expect(monitorTelegramProvider).not.toHaveBeenCalled();
   });
 });

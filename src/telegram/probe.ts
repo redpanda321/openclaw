@@ -23,6 +23,16 @@ export async function probeTelegram(
   proxyUrl?: string,
 ): Promise<TelegramProbe> {
   const started = Date.now();
+
+  if (!token?.trim()) {
+    return {
+      ok: false,
+      status: null,
+      error: "Telegram bot token is empty or not configured",
+      elapsedMs: 0,
+    };
+  }
+
   const fetcher = proxyUrl ? makeProxyFetch(proxyUrl) : fetch;
   const base = `${TELEGRAM_API_BASE}/bot${token}`;
   const retryDelayMs = Math.max(50, Math.min(1000, timeoutMs));
