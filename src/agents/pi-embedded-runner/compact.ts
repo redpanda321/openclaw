@@ -456,12 +456,13 @@ export async function compactEmbeddedPiSessionDirect(
         })
       : undefined;
 
+    const sanitizedProvider = provider.replace(/^hanggent-(?:cloud|custom|local)-/, "");
     const runtimeInfo = {
       host: machineName,
       os: `${os.type()} ${os.release()}`,
       arch: os.arch(),
       node: process.version,
-      model: `${provider}/${modelId}`,
+      model: `${sanitizedProvider}/${modelId}`,
       shell: detectRuntimeShell(),
       channel: runtimeChannel,
       capabilities: runtimeCapabilities,

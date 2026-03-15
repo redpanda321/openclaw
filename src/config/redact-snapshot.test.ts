@@ -109,7 +109,7 @@ describe("redactConfigSnapshot", () => {
     expect(cfg.channels.slack.token).toBe(REDACTED_SENTINEL);
     expect(cfg.channels.feishu.appSecret).toBe(REDACTED_SENTINEL);
     expect(cfg.models.providers.openai.apiKey).toBe(REDACTED_SENTINEL);
-    expect(cfg.models.providers.openai.baseUrl).toBe("https://api.openai.com");
+    expect(cfg.models.providers.openai.baseUrl).toBe(REDACTED_SENTINEL);
     expect(cfg.shortSecret.token).toBe(REDACTED_SENTINEL);
   });
 
@@ -150,14 +150,14 @@ describe("redactConfigSnapshot", () => {
       provider: REDACTED_SENTINEL,
       id: REDACTED_SENTINEL,
     });
-    expect(models.providers.openai.baseUrl).toBe("https://api.openai.com");
+    expect(models.providers.openai.baseUrl).toBe(REDACTED_SENTINEL);
   });
 
   it("preserves non-sensitive fields", () => {
     const snapshot = makeSnapshot({
       ui: { seamColor: "#0088cc" },
       gateway: { port: 18789 },
-      models: { providers: { openai: { baseUrl: "https://api.openai.com" } } },
+      models: { providers: { openai: { displayName: "OpenAI" } } },
     });
     const result = redactConfigSnapshot(snapshot);
     expect(result.config).toEqual(snapshot.config);

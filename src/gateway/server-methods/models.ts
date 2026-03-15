@@ -30,7 +30,11 @@ export const modelsHandlers: GatewayRequestHandlers = {
         catalog,
         defaultProvider: DEFAULT_PROVIDER,
       });
-      const models = allowedCatalog.length > 0 ? allowedCatalog : catalog;
+      const raw = allowedCatalog.length > 0 ? allowedCatalog : catalog;
+      const models = raw.map((m) => ({
+        ...m,
+        provider: m.provider?.replace(/^hanggent-(?:cloud|custom|local)-/, "") ?? m.provider,
+      }));
       respond(true, { models }, undefined);
     } catch (err) {
       respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, String(err)));
