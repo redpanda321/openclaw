@@ -6,6 +6,7 @@ type HostEnvSecurityPolicy = {
   blockedKeys: string[];
   blockedOverrideKeys?: string[];
   blockedPrefixes: string[];
+  blockedSuffixes?: string[];
 };
 
 const HOST_ENV_SECURITY_POLICY = HOST_ENV_SECURITY_POLICY_JSON as HostEnvSecurityPolicy;
@@ -15,6 +16,9 @@ export const HOST_DANGEROUS_ENV_KEY_VALUES: readonly string[] = Object.freeze(
 );
 export const HOST_DANGEROUS_ENV_PREFIXES: readonly string[] = Object.freeze(
   HOST_ENV_SECURITY_POLICY.blockedPrefixes.map((prefix) => prefix.toUpperCase()),
+);
+export const HOST_DANGEROUS_ENV_SUFFIXES: readonly string[] = Object.freeze(
+  (HOST_ENV_SECURITY_POLICY.blockedSuffixes ?? []).map((suffix) => suffix.toUpperCase()),
 );
 export const HOST_DANGEROUS_OVERRIDE_ENV_KEY_VALUES: readonly string[] = Object.freeze(
   (HOST_ENV_SECURITY_POLICY.blockedOverrideKeys ?? []).map((key) => key.toUpperCase()),
@@ -60,7 +64,10 @@ export function isDangerousHostEnvVarName(rawKey: string): boolean {
   if (HOST_DANGEROUS_ENV_KEYS.has(upper)) {
     return true;
   }
-  return HOST_DANGEROUS_ENV_PREFIXES.some((prefix) => upper.startsWith(prefix));
+  if (HOST_DANGEROUS_ENV_PREFIXES.some((prefix) => upper.startsWith(prefix))) {
+    return true;
+  }
+  return HOST_DANGEROUS_ENV_SUFFIXES.some((suffix) => upper.endsWith(suffix));
 }
 
 export function isDangerousHostEnvOverrideVarName(rawKey: string): boolean {

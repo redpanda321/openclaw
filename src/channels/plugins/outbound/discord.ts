@@ -32,12 +32,13 @@ function resolveDiscordWebhookIdentity(params: {
   binding: ThreadBindingRecord;
 }): { username?: string; avatarUrl?: string } {
   const usernameRaw = params.identity?.name?.trim();
-  const fallbackUsername = params.binding.label?.trim() || params.binding.agentId;
+  const fallbackUsername = params.binding.label?.trim() || SAFE_DISCORD_USERNAME;
   const username = (usernameRaw || fallbackUsername || "").slice(0, 80) || undefined;
   const avatarUrl = params.identity?.avatarUrl?.trim() || undefined;
   return { username, avatarUrl };
 }
 
+const SAFE_DISCORD_USERNAME = "OpenClaw Bot";
 async function maybeSendDiscordWebhookText(params: {
   cfg?: OpenClawConfig;
   text: string;

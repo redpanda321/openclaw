@@ -29,6 +29,8 @@ export type DiscordThreadBindingLookup = {
 
 type ResolvedRetryConfig = Required<RetryConfig>;
 
+const SAFE_DISCORD_USERNAME = "OpenClaw Bot";
+
 const DISCORD_DELIVERY_RETRY_DEFAULTS: ResolvedRetryConfig = {
   attempts: 3,
   minDelayMs: 1000,
@@ -110,8 +112,7 @@ function resolveBindingPersona(binding: DiscordThreadBindingLookupRecord | undef
   if (!binding) {
     return {};
   }
-  const baseLabel = binding.label?.trim() || binding.agentId;
-  const username = (`🤖 ${baseLabel}`.trim() || "🤖 agent").slice(0, 80);
+  const username = (binding.label?.trim() || SAFE_DISCORD_USERNAME).slice(0, 80);
 
   let avatarUrl: string | undefined;
   try {

@@ -383,6 +383,27 @@ describe("deliverDiscordReply", () => {
     expect(sendMessageDiscordMock).not.toHaveBeenCalled();
   });
 
+  it("uses a generic webhook username when the binding label is absent", async () => {
+    const threadBindings = await createBoundThreadBindings({ label: "   " });
+
+    await deliverDiscordReply({
+      replies: [{ text: "Hello from subagent" }],
+      target: "channel:thread-1",
+      token: "token",
+      runtime,
+      textLimit: 2000,
+      sessionKey: "agent:main:subagent:child",
+      threadBindings,
+    });
+
+    expect(sendWebhookMessageDiscordMock).toHaveBeenCalledWith(
+      "Hello from subagent",
+      expect.objectContaining({
+        username: "OpenClaw Bot",
+      }),
+    );
+  });
+
   it("touches bound-thread activity after outbound delivery", async () => {
     vi.useFakeTimers();
     try {

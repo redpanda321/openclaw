@@ -16,8 +16,13 @@
     "PS4",
     "GCONV_PATH",
     "IFS",
-    "SSLKEYLOGFILE"
+    "SSLKEYLOGFILE",
+    "HOSTNAME",
+    "OPENCLAW_STATE_DIR",
+    "OPENCLAW_GATEWAY_TOKEN",
+    "OPENCLAW_GATEWAY_PORT"
   ],
   "blockedOverrideKeys": ["HOME", "ZDOTDIR"],
-  "blockedPrefixes": ["DYLD_", "LD_", "BASH_FUNC_"]
+  "blockedPrefixes": ["DYLD_", "LD_", "BASH_FUNC_", "KUBERNETES_", "OPENCLAW_GATEWAY_", "SUPERVISOR_"],
+  "blockedSuffixes": ["_API_KEY", "_SECRET_KEY", "_SECRET", "_TOKEN"]
 }

@@ -188,6 +188,42 @@ describe("discordOutbound", () => {
     });
   });
 
+  it("uses a generic webhook username when identity and label are absent", async () => {
+    hoisted.getThreadBindingManagerMock.mockReturnValue({
+      getByThreadId: () => ({
+        accountId: "default",
+        channelId: "parent-1",
+        threadId: "thread-1",
+        targetKind: "subagent",
+        targetSessionKey: "agent:main:subagent:child",
+        agentId: "internal-agent-id",
+        label: "   ",
+        webhookId: "wh-1",
+        webhookToken: "tok-1",
+        boundBy: "system",
+        boundAt: Date.now(),
+      }),
+    });
+
+    await discordOutbound.sendText?.({
+      cfg: {},
+      to: "channel:parent-1",
+      text: "hello from persona",
+      accountId: "default",
+      threadId: "thread-1",
+      identity: {
+        name: "   ",
+      },
+    });
+
+    expect(hoisted.sendWebhookMessageDiscordMock).toHaveBeenCalledWith(
+      "hello from persona",
+      expect.objectContaining({
+        username: "OpenClaw Bot",
+      }),
+    );
+  });
+
   it("falls back to bot send for silent delivery on bound threads", async () => {
     mockBoundThreadManager();
 
