@@ -1,8 +1,10 @@
 import {
+  buildOauthProviderAuthResult,
   emptyPluginConfigSchema,
   type OpenClawPluginApi,
   type ProviderAuthContext,
   type ProviderAuthResult,
+  type ProviderCatalogContext,
 } from "openclaw/plugin-sdk/minimax-portal-auth";
 import { loginMiniMaxPortalOAuth, type MiniMaxRegion } from "./oauth.js";
 
@@ -13,7 +15,6 @@ const DEFAULT_BASE_URL_CN = "https://api.minimaxi.com/anthropic";
 const DEFAULT_BASE_URL_GLOBAL = "https://api.minimax.io/anthropic";
 const DEFAULT_CONTEXT_WINDOW = 200000;
 const DEFAULT_MAX_TOKENS = 8192;
-const OAUTH_PLACEHOLDER = "minimax-oauth";
 
 function getDefaultBaseUrl(region: MiniMaxRegion): string {
   return region === "cn" ? DEFAULT_BASE_URL_CN : DEFAULT_BASE_URL_GLOBAL;
@@ -40,6 +41,53 @@ function buildModelDefinition(params: {
   };
 }
 
+function buildProviderCatalog(params: { baseUrl: string; apiKey: string }) {
+  return {
+    baseUrl: params.baseUrl,
+    apiKey: params.apiKey,
+    api: "anthropic-messages" as const,
+    models: [
+      buildModelDefinition({
+        id: "MiniMax-M2.5",
+        name: "MiniMax M2.5",
+        input: ["text"],
+      }),
+      buildModelDefinition({
+        id: "MiniMax-M2.5-highspeed",
+        name: "MiniMax M2.5 Highspeed",
+        input: ["text"],
+        reasoning: true,
+      }),
+      buildModelDefinition({
+        id: "MiniMax-M2.5-Lightning",
+        name: "MiniMax M2.5 Lightning",
+        input: ["text"],
+        reasoning: true,
+      }),
+    ],
+  };
+}
+
+function resolveCatalog(ctx: ProviderCatalogContext) {
+  const explicitProvider = ctx.config.models?.providers?.[PROVIDER_ID];
+  const apiKey =
+    ctx.resolveProviderApiKey(PROVIDER_ID).apiKey ??
+    (typeof explicitProvider?.apiKey === "string" ? explicitProvider.apiKey.trim() : undefined);
+  if (!apiKey) {
+    return null;
+  }
+
+  const explicitBaseUrl =
+    typeof explicitProvider?.baseUrl === "string" ? explicitProvider.baseUrl.trim() : undefined;
+
+  return {
+    provider: buildProviderCatalog({
+      baseUrl: explicitBaseUrl || DEFAULT_BASE_URL_GLOBAL,
+      apiKey,
+    }),
+  };
+}
+
 function createOAuthHandler(region: MiniMaxRegion) {
   const defaultBaseUrl = getDefaultBaseUrl(region);
   const regionLabel = region === "cn" ? "CN" : "Global";
@@ -60,48 +108,20 @@ function createOAuthHandler(region: MiniMaxRegion) {
         await ctx.prompter.note(result.notification_message, "MiniMax OAuth");
       }
 
-      const profileId = `${PROVIDER_ID}:default`;
       const baseUrl = result.resourceUrl || defaultBaseUrl;
 
-      return {
-        profiles: [
-          {
-            profileId,
-            credential: {
-              type: "oauth" as const,
-              provider: PROVIDER_ID,
-              access: result.access,
-              refresh: result.refresh,
-              expires: result.expires,
-            },
-          },
-        ],
+      return buildOauthProviderAuthResult({
+        providerId: PROVIDER_ID,
+        defaultModel: modelRef(DEFAULT_MODEL),
+        access: result.access,
+        refresh: result.refresh,
+        expires: result.expires,
         configPatch: {
           models: {
             providers: {
               [PROVIDER_ID]: {
                 baseUrl,
-                apiKey: OAUTH_PLACEHOLDER,
-                api: "anthropic-messages",
-                models: [
-                  buildModelDefinition({
-                    id: "MiniMax-M2.5",
-                    name: "MiniMax M2.5",
-                    input: ["text"],
-                  }),
-                  buildModelDefinition({
-                    id: "MiniMax-M2.5-highspeed",
-                    name: "MiniMax M2.5 Highspeed",
-                    input: ["text"],
-                    reasoning: true,
-                  }),
-                  buildModelDefinition({
-                    id: "MiniMax-M2.5-Lightning",
-                    name: "MiniMax M2.5 Lightning",
-                    input: ["text"],
-                    reasoning: true,
-                  }),
-                ],
+                models: [],
               },
             },
           },
@@ -119,13 +139,12 @@ function createOAuthHandler(region: MiniMaxRegion) {
             },
           },
         },
-        defaultModel: modelRef(DEFAULT_MODEL),
         notes: [
           "MiniMax OAuth tokens auto-refresh. Re-run login if refresh fails or access is revoked.",
           `Base URL defaults to ${defaultBaseUrl}. Override models.providers.${PROVIDER_ID}.baseUrl if needed.`,
           ...(result.notification_message ? [result.notification_message] : []),
         ],
-      };
+      });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       progress.stop(`MiniMax OAuth failed: ${errorMsg}`);
@@ -149,6 +168,9 @@ const minimaxPortalPlugin = {
       label: PROVIDER_LABEL,
       docsPath: "/providers/minimax",
       aliases: ["minimax"],
+      catalog: {
+        run: async (ctx: ProviderCatalogContext) => resolveCatalog(ctx),
+      },
       auth: [
         {
           id: "oauth",
