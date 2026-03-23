@@ -20,6 +20,12 @@ const mocks = vi.hoisted(() => {
     runtime: {
       log: runtimeLog,
       error: runtimeError,
+      writeStdout: vi.fn((value: string) =>
+        runtimeLog(value.endsWith("\n") ? value.slice(0, -1) : value),
+      ),
+      writeJson: vi.fn((value: unknown, space = 2) =>
+        runtimeLog(JSON.stringify(value, null, space)),
+      ),
       exit: runtimeExit,
     },
   };
@@ -91,6 +97,42 @@ describe("browser manage output", () => {
     expect(output).not.toContain("cdpUrl:");
   });
 
+  it("shows configured userDataDir for existing-session status", async () => {
+    mocks.callBrowserRequest.mockImplementation(async (_opts: unknown, req: { path?: string }) =>
+      req.path === "/"
+        ? {
+            enabled: true,
+            profile: "brave-live",
+            driver: "existing-session",
+            transport: "chrome-mcp",
+            running: true,
+            cdpReady: true,
+            cdpHttp: true,
+            pid: 4321,
+            cdpPort: null,
+            cdpUrl: null,
+            chosenBrowser: null,
+            userDataDir: "/Users/test/Library/Application Support/BraveSoftware/Brave-Browser",
+            color: "#FB542B",
+            headless: false,
+            noSandbox: false,
+            executablePath: null,
+            attachOnly: true,
+          }
+        : {},
+    );
+
+    const program = createProgram();
+    await program.parseAsync(["browser", "--browser-profile", "brave-live", "status"], {
+      from: "user",
+    });
+
+    const output = mocks.runtimeLog.mock.calls.at(-1)?.[0] as string;
+    expect(output).toContain(
+      "userDataDir: /Users/test/Library/Application Support/BraveSoftware/Brave-Browser",
+    );
+  });
+
   it("shows chrome-mcp transport in browser profiles output", async () => {
     mocks.callBrowserRequest.mockImplementation(async (_opts: unknown, req: { path?: string }) =>
       req.path === "/profiles"
@@ -131,6 +173,7 @@ describe("browser manage output", () => {
             transport: "chrome-mcp",
             cdpPort: null,
             cdpUrl: null,
+            userDataDir: null,
             color: "#00AA00",
             isRemote: false,
           }

@@ -14,7 +14,7 @@ Status: experimental. DMs are supported. The [Capabilities](#capabilities) secti
 Zalo ships as a plugin and is not bundled with the core install.
 
 - Install via CLI: `openclaw plugins install @openclaw/zalo`
-- Or select **Zalo** during onboarding and confirm the install prompt
+- Or select **Zalo** during setup and confirm the install prompt
 - Details: [Plugins](/tools/plugin)
 
 ## Configuration at a glance
@@ -47,11 +47,11 @@ Outside the config file, generate the bot token and approve the first pairing re
 1. Install the Zalo plugin:
    - From a source checkout: `openclaw plugins install ./extensions/zalo`
    - From npm (if published): `openclaw plugins install @openclaw/zalo`
-   - Or pick **Zalo** in onboarding and confirm the install prompt
+   - Or pick **Zalo** in setup and confirm the install prompt
 2. Set the token:
    - Env: `ZALO_BOT_TOKEN=...`
    - Or config: `channels.zalo.accounts.default.botToken: "..."`.
-3. Restart the gateway (or finish onboarding).
+3. Restart the gateway (or finish setup).
 4. DM access is pairing by default; approve the pairing code on first contact.
 
 Minimal config:

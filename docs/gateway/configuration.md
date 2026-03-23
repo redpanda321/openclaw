@@ -38,7 +38,7 @@ See the [full reference](/gateway/configuration-reference) for every available f
 <Tabs>
   <Tab title="Interactive wizard">
     ```bash
-    openclaw onboard       # full setup wizard
+    openclaw onboard       # full onboarding flow
     openclaw configure     # config wizard
     ```
   </Tab>
@@ -46,7 +46,7 @@ See the [full reference](/gateway/configuration-reference) for every available f
     ```bash
     openclaw config get agents.defaults.workspace
     openclaw config set agents.defaults.heartbeat.every "2h"
-    openclaw config unset tools.web.search.apiKey
+    openclaw config unset plugins.entries.brave.config.webSearch.apiKey
     ```
   </Tab>
   <Tab title="Control UI">
@@ -75,7 +75,7 @@ When validation fails:
 
 <AccordionGroup>
   <Accordion title="Set up a channel (WhatsApp, Telegram, Discord, etc.)">
-    Use the channel page itself as the configuration page for that channel. Each page opens with the required credentials, minimum config, and setup flow:
+    Each channel has its own config section under `channels.<provider>`. See the dedicated channel page for setup steps:
 
     - [WhatsApp](/channels/whatsapp) — `channels.whatsapp`
     - [Telegram](/channels/telegram) — `channels.telegram`
@@ -85,16 +85,7 @@ When validation fails:
     - [iMessage](/channels/imessage) — `channels.imessage`
     - [Google Chat](/channels/googlechat) — `channels.googlechat`
     - [Mattermost](/channels/mattermost) — `channels.mattermost`
-    - [MS Teams](/channels/msteams) — `channels.msteams`
-    - Full catalog: [Chat Channels](/channels)
-
-    If you want channels grouped by setup model instead of provider, use the discovery pages:
-
-    - [Channel configuration overview](/gateway/channel-configuration-guides)
-    - [Bot tokens and QR login](/gateway/channel-configuration-bot-tokens-and-qr)
-    - [Webhooks and app credentials](/gateway/channel-configuration-webhooks-and-apps)
-    - [Account logins and self hosted channels](/gateway/channel-configuration-account-logins)
-    - [External clients and legacy integrations](/gateway/channel-configuration-external-clients)
+    - [Microsoft Teams](/channels/msteams) — `channels.msteams`
 
     All channels share the same DM policy pattern:
 
@@ -121,11 +112,11 @@ When validation fails:
       agents: {
         defaults: {
           model: {
-            primary: "anthropic/claude-sonnet-4-5",
+            primary: "anthropic/claude-sonnet-4-6",
             fallbacks: ["openai/gpt-5.2"],
           },
           models: {
-            "anthropic/claude-sonnet-4-5": { alias: "Sonnet" },
+            "anthropic/claude-sonnet-4-6": { alias: "Sonnet" },
             "openai/gpt-5.2": { alias: "GPT" },
           },
         },
@@ -260,7 +251,7 @@ When validation fails:
 
     Build the image first: `scripts/sandbox-setup.sh`
 
-    See [Sandboxing](/gateway/sandboxing) for the full guide and [full reference](/gateway/configuration-reference#sandbox) for all options.
+    See [Sandboxing](/gateway/sandboxing) for the full guide and [full reference](/gateway/configuration-reference#agentsdefaultssandbox) for all options.
 
   </Accordion>
 
@@ -606,11 +597,11 @@ Rules:
   },
   skills: {
     entries: {
-      "nano-banana-pro": {
+      "image-lab": {
         apiKey: {
           source: "file",
           provider: "filemain",
-          id: "/skills/entries/nano-banana-pro/apiKey",
+          id: "/skills/entries/image-lab/apiKey",
         },
       },
     },

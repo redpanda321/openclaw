@@ -1,7 +1,7 @@
 import { normalizeProviderId } from "../agents/model-selection.js";
 import type { OpenClawConfig } from "../config/config.js";
 import type { ModelProviderConfig } from "../config/types.js";
-import { resolvePluginProviders } from "./providers.js";
+import { resolvePluginProviders } from "./providers.runtime.js";
 import type { ProviderDiscoveryOrder, ProviderPlugin } from "./types.js";
 
 const DISCOVERY_ORDER: readonly ProviderDiscoveryOrder[] = ["simple", "profile", "paired", "late"];
@@ -15,7 +15,10 @@ export function resolvePluginDiscoveryProviders(params: {
   workspaceDir?: string;
   env?: NodeJS.ProcessEnv;
 }): ProviderPlugin[] {
-  return resolvePluginProviders(params).filter((provider) => resolveProviderCatalogHook(provider));
+  return resolvePluginProviders({
+    ...params,
+    bundledProviderAllowlistCompat: true,
+  }).filter((provider) => resolveProviderCatalogHook(provider));
 }
 
 export function groupPluginDiscoveryProvidersByOrder(
@@ -78,6 +81,16 @@ export function runProviderCatalog(params: {
     apiKey: string | undefined;
     discoveryApiKey?: string;
   };
+  resolveProviderAuth: (
+    providerId?: string,
+    options?: { oauthMarker?: string },
+  ) => {
+    apiKey: string | undefined;
+    discoveryApiKey?: string;
+    mode: "api_key" | "oauth" | "token" | "none";
+    source: "env" | "profile" | "none";
+    profileId?: string;
+  };
 }) {
   return resolveProviderCatalogHook(params.provider)?.run({
     config: params.config,
@@ -85,5 +98,6 @@ export function runProviderCatalog(params: {
     workspaceDir: params.workspaceDir,
     env: params.env,
     resolveProviderApiKey: params.resolveProviderApiKey,
+    resolveProviderAuth: params.resolveProviderAuth,
   });
 }

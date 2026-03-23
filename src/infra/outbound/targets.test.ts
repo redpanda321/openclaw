@@ -1,9 +1,20 @@
-import { describe, expect, it } from "vitest";
-import { telegramOutbound } from "../../channels/plugins/outbound/telegram.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ChannelOutboundAdapter } from "../../channels/plugins/types.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import type { SessionEntry } from "../../config/sessions/types.js";
 import { setActivePluginRegistry } from "../../plugins/runtime.js";
-import { createOutboundTestPlugin, createTestRegistry } from "../../test-utils/channel-plugins.js";
+
+vi.mock("./channel-resolution.js", async () => {
+  const { getActivePluginRegistry } = await import("../../plugins/runtime.js");
+
+  return {
+    normalizeDeliverableOutboundChannel: (raw?: string | null) =>
+      typeof raw === "string" && raw.trim() ? raw.trim().toLowerCase() : undefined,
+    resolveOutboundChannelPlugin: ({ channel }: { channel: string }) =>
+      getActivePluginRegistry()?.channels.find((entry) => entry?.plugin?.id === channel)?.plugin,
+  };
+});
+
 import {
   resolveHeartbeatDeliveryTarget,
   resolveOutboundTarget,
@@ -14,8 +25,40 @@ import {
   installResolveOutboundTargetPluginRegistryHooks,
   runResolveOutboundTargetCoreTests,
 } from "./targets.shared-test.js";
+import {
+  createNoopOutboundChannelPlugin,
+  createTargetsTestRegistry,
+  createTelegramTestPlugin,
+  createWhatsAppTestPlugin,
+} from "./targets.test-helpers.js";
 
 runResolveOutboundTargetCoreTests();
+
+const noopOutbound = (channel: "discord" | "imessage" | "slack"): ChannelOutboundAdapter => ({
+  deliveryMode: "direct",
+  sendText: async () => ({ channel, messageId: `${channel}-msg` }),
+});
+
+beforeEach(() => {
+  setActivePluginRegistry(
+    createTargetsTestRegistry([
+      {
+        ...createNoopOutboundChannelPlugin("discord"),
+        outbound: noopOutbound("discord"),
+      },
+      {
+        ...createNoopOutboundChannelPlugin("imessage"),
+        outbound: noopOutbound("imessage"),
+      },
+      {
+        ...createNoopOutboundChannelPlugin("slack"),
+        outbound: noopOutbound("slack"),
+      },
+      createTelegramTestPlugin(),
+      createWhatsAppTestPlugin(),
+    ]),
+  );
+});
 
 describe("resolveOutboundTarget defaultTo config fallback", () => {
   installResolveOutboundTargetPluginRegistryHooks();
@@ -70,7 +113,7 @@ describe("resolveOutboundTarget defaultTo config fallback", () => {
   });
 
   it("falls back to the active registry when the cached channel map is stale", () => {
-    const registry = createTestRegistry([]);
+    const registry = createTargetsTestRegistry([]);
     setActivePluginRegistry(registry, "stale-registry-test");
 
     // Warm the cached channel map before mutating the registry in place.
@@ -80,7 +123,7 @@ describe("resolveOutboundTarget defaultTo config fallback", () => {
 
     registry.channels.push({
       pluginId: "telegram",
-      plugin: createOutboundTestPlugin({ id: "telegram", outbound: telegramOutbound }),
+      plugin: createTelegramTestPlugin(),
       source: "test",
     });
 
@@ -307,6 +350,24 @@ describe("resolveSessionDeliveryTarget", () => {
     });
 
     expect(resolved.to).toBe("C12345:topic:999");
+    expect(resolved.threadId).toBeUndefined();
+  });
+
+  it("keeps raw :topic: targets when the telegram plugin registry is unavailable", () => {
+    setActivePluginRegistry(createTargetsTestRegistry([]));
+
+    const resolved = resolveSessionDeliveryTarget({
+      entry: {
+        sessionId: "sess-no-registry",
+        updatedAt: 1,
+        lastChannel: "telegram",
+        lastTo: "63448508",
+      },
+      requestedChannel: "last",
+      explicitTo: "63448508:topic:1008013",
+    });
+
+    expect(resolved.to).toBe("63448508:topic:1008013");
     expect(resolved.threadId).toBeUndefined();
   });
 

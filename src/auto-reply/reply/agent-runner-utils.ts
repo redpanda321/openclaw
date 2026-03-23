@@ -1,6 +1,6 @@
 import { resolveRunModelFallbacksOverride } from "../../agents/agent-scope.js";
 import type { NormalizedUsage } from "../../agents/usage.js";
-import { getChannelDock } from "../../channels/dock.js";
+import { getChannelPlugin } from "../../channels/plugins/index.js";
 import type { ChannelId, ChannelThreadingToolContext } from "../../channels/plugins/types.js";
 import { normalizeAnyChannelId, normalizeChannelId } from "../../channels/registry.js";
 import type { OpenClawConfig } from "../../config/config.js";
@@ -8,6 +8,11 @@ import { isReasoningTagProvider } from "../../utils/provider-utils.js";
 import { estimateUsageCost, formatTokenCount, formatUsd } from "../../utils/usage-format.js";
 import type { TemplateContext } from "../templating.js";
 import type { ReplyPayload } from "../types.js";
+import {
+  resolveProviderScopedAuthProfile,
+  resolveRunAuthProfile,
+} from "./agent-runner-auth-profile.js";
+export { resolveProviderScopedAuthProfile, resolveRunAuthProfile };
 import { resolveOriginMessageProvider, resolveOriginMessageTo } from "./origin-routing.js";
 import type { FollowupRun } from "./queue.js";
 
@@ -44,8 +49,8 @@ export function buildThreadingToolContext(params: {
   }
   const provider = normalizeChannelId(rawProvider) ?? normalizeAnyChannelId(rawProvider);
   // Fallback for unrecognized/plugin channels (e.g., BlueBubbles before plugin registry init)
-  const dock = provider ? getChannelDock(provider) : undefined;
-  if (!dock?.threading?.buildToolContext) {
+  const threading = provider ? getChannelPlugin(provider)?.threading : undefined;
+  if (!threading?.buildToolContext) {
     return {
       currentChannelId: originTo?.trim() || undefined,
       currentChannelProvider: provider ?? (rawProvider as ChannelId),
@@ -54,7 +59,7 @@ export function buildThreadingToolContext(params: {
     };
   }
   const context =
-    dock.threading.buildToolContext({
+    threading.buildToolContext({
       cfg: config,
       accountId: sessionCtx.AccountId,
       context: {
@@ -72,7 +77,7 @@ export function buildThreadingToolContext(params: {
     }) ?? {};
   return {
     ...context,
-    currentChannelProvider: provider!, // guaranteed non-null since dock exists
+    currentChannelProvider: provider!, // guaranteed non-null since threading exists
     currentMessageId: context.currentMessageId ?? currentMessageId,
   };
 }
@@ -237,15 +242,6 @@ export function buildTemplateSenderContext(sessionCtx: TemplateContext) {
   };
 }
 
-export function resolveRunAuthProfile(run: FollowupRun["run"], provider: string) {
-  return resolveProviderScopedAuthProfile({
-    provider,
-    primaryProvider: run.provider,
-    authProfileId: run.authProfileId,
-    authProfileIdSource: run.authProfileIdSource,
-  });
-}
-
 export function buildEmbeddedRunContexts(params: {
   run: FollowupRun["run"];
   sessionCtx: TemplateContext;
@@ -285,19 +281,5 @@ export function buildEmbeddedRunExecutionParams(params: {
     embeddedContext,
     senderContext,
     runBaseParams,
-  };
-}
-
-export function resolveProviderScopedAuthProfile(params: {
-  provider: string;
-  primaryProvider: string;
-  authProfileId?: string;
-  authProfileIdSource?: "auto" | "user";
-}): { authProfileId?: string; authProfileIdSource?: "auto" | "user" } {
-  const authProfileId =
-    params.provider === params.primaryProvider ? params.authProfileId : undefined;
-  return {
-    authProfileId,
-    authProfileIdSource: authProfileId ? params.authProfileIdSource : undefined,
   };
 }

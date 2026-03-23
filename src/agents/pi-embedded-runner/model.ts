@@ -3,6 +3,7 @@ import type { AuthStorage, ModelRegistry } from "@mariozechner/pi-coding-agent";
 import type { OpenClawConfig } from "../../config/config.js";
 import type { ModelDefinitionConfig } from "../../config/types.js";
 import {
+  clearProviderRuntimeHookCache,
   prepareProviderDynamicModel,
   resolveProviderRuntimePlugin,
   runProviderDynamicModel,
@@ -13,7 +14,6 @@ import { DEFAULT_CONTEXT_TOKENS } from "../defaults.js";
 import { buildModelAliasLines } from "../model-alias-lines.js";
 import { isSecretRefHeaderValueMarker } from "../model-auth-markers.js";
 import { normalizeModelCompat } from "../model-compat.js";
-import { resolveForwardCompatModel } from "../model-forward-compat.js";
 import { findNormalizedProviderValue, normalizeProviderId } from "../model-selection.js";
 import {
   buildSuppressedBuiltInModelError,
@@ -230,25 +230,6 @@ function resolveExplicitModelWithRegistry(params: {
     };
   }
 
-  // Forward-compat fallbacks must be checked BEFORE the generic providerCfg fallback.
-  // Otherwise, configured providers can default to a generic API and break specific transports.
-  const forwardCompat = resolveForwardCompatModel(provider, modelId, modelRegistry);
-  if (forwardCompat) {
-    return {
-      kind: "resolved",
-      model: normalizeResolvedModel({
-        provider,
-        cfg,
-        agentDir,
-        model: applyConfiguredProviderOverrides({
-          discoveredModel: forwardCompat,
-          providerConfig,
-          modelId,
-        }),
-      }),
-    };
-  }
-
   return undefined;
 }
 
@@ -286,7 +267,11 @@ export function resolveModelWithRegistry(params: {
       provider,
       cfg,
       agentDir,
-      model: pluginDynamicModel,
+      model: applyConfiguredProviderOverrides({
+        discoveredModel: pluginDynamicModel as Model<Api>,
+        providerConfig,
+        modelId,
+      }),
     });
   }
 
@@ -365,6 +350,9 @@ export async function resolveModelAsync(
   modelId: string,
   agentDir?: string,
   cfg?: OpenClawConfig,
+  options?: {
+    retryTransientProviderRuntimeMiss?: boolean;
+  },
 ): Promise<{
   model?: Model<Api>;
   error?: string;
@@ -388,7 +376,11 @@ export async function resolveModelAsync(
       modelRegistry,
     };
   }
-  if (!explicitModel) {
+  const providerConfig = resolveConfiguredProviderConfig(cfg, provider);
+  const resolveDynamicAttempt = async (options?: { clearHookCache?: boolean }) => {
+    if (options?.clearHookCache) {
+      clearProviderRuntimeHookCache();
+    }
     const providerPlugin = resolveProviderRuntimePlugin({
       provider,
       config: cfg,
@@ -403,21 +395,26 @@ export async function resolveModelAsync(
           provider,
           modelId,
           modelRegistry,
-          providerConfig: resolveConfiguredProviderConfig(cfg, provider),
+          providerConfig,
         },
       });
     }
+    return resolveModelWithRegistry({
+      provider,
+      modelId,
+      modelRegistry,
+      cfg,
+      agentDir: resolvedAgentDir,
+    });
+  };
+  let model =
+    explicitModel?.kind === "resolved" ? explicitModel.model : await resolveDynamicAttempt();
+  if (!model && !explicitModel && options?.retryTransientProviderRuntimeMiss) {
+    // Startup can race the first provider-runtime snapshot load on a fresh
+    // gateway boot. Retry once with a cleared hook cache before surfacing a
+    // user-visible "Unknown model" that disappears on the next message.
+    model = await resolveDynamicAttempt({ clearHookCache: true });
   }
-  const model =
-    explicitModel?.kind === "resolved"
-      ? explicitModel.model
-      : resolveModelWithRegistry({
-          provider,
-          modelId,
-          modelRegistry,
-          cfg,
-          agentDir: resolvedAgentDir,
-        });
   if (model) {
     return { model, authStorage, modelRegistry };
   }
